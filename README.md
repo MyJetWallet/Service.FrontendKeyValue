@@ -8,3 +8,4 @@
 
 *Client library:* ![Nuget version](https://img.shields.io/nuget/v/MyJetWallet.Service.FrontendKeyValue.Client?label=MyJetWallet.Service.FrontendKeyValue.Client&style=social)
 
+
