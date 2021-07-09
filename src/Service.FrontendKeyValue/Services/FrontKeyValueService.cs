@@ -2,12 +2,15 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using MyJetWallet.Sdk.Service;
 using MyNoSqlServer.Abstractions;
 using Service.FrontendKeyValue.Domain.Models;
 using Service.FrontendKeyValue.Domain.Models.NoSql;
 using Service.FrontendKeyValue.Grpc;
 using Service.FrontendKeyValue.Grpc.Models;
+using Service.FrontendKeyValue.Postgres;
 using Service.FrontendKeyValue.Settings;
 
 namespace Service.FrontendKeyValue.Services
@@ -16,15 +19,15 @@ namespace Service.FrontendKeyValue.Services
     {
         private readonly ILogger<FrontKeyValueService> _logger;
         private readonly IMyNoSqlServerDataWriter<FrontKeyValueNoSql> _writer;
-        private readonly IMyNoSqlServerDataReader<FrontKeyValueNoSql> _reader;
+        private readonly IMyContextFactory _contextFactory;
 
         public FrontKeyValueService(ILogger<FrontKeyValueService> logger, 
             IMyNoSqlServerDataWriter<FrontKeyValueNoSql> writer,
-            IMyNoSqlServerDataReader<FrontKeyValueNoSql> reader)
+            IMyContextFactory contextFactory)
         {
             _logger = logger;
             _writer = writer;
-            _reader = reader;
+            _contextFactory = contextFactory;
         }
 
         public async Task SetKeysAsync(SetFrontKeysRequest request)
@@ -41,11 +44,30 @@ namespace Service.FrontendKeyValue.Services
                 return;
             }
 
-            var entities = list.Select(e => FrontKeyValueNoSql.Create(request.ClientId, e)).ToList();
+            await using var ctx = _contextFactory.Create();
+            var databaseList = list.Select(e => FrontKeyValueDbEntity.Create(request.ClientId, e)).ToList();
+            await ctx.Upsert(databaseList);
 
-            await _writer.BulkInsertOrReplaceAsync(entities);
+            await UploadClientToCache(ctx, request.ClientId);
 
             _logger.LogDebug("Key values is updated. ClientId: {clientId}; Count: {count}", request.ClientId, list.Count);
+        }
+
+        private async Task<List<FrontKeyValue>> UploadClientToCache(MyContext ctx, string clientId)
+        {
+            using var activity = MyTelemetry.StartActivity("Upload client to cache");
+
+            clientId.AddToActivityAsTag("clientId");
+
+            var data = await ctx.FrontKeyValue.Where(e => e.ClientId == clientId).ToListAsync();
+
+            data.Count.AddToActivityAsTag("count");
+
+            var list = data.Select(e => FrontKeyValueNoSql.Create(clientId, e)).ToList();
+
+            await _writer.CleanAndBulkInsertAsync(FrontKeyValueNoSql.GeneratePartitionKey(clientId), list);
+
+            return data.Select(e => e.ToValue()).ToList();
         }
 
         public async Task DeleteKeysAsync(DeleteFrontKeysRequest request)
@@ -54,26 +76,48 @@ namespace Service.FrontendKeyValue.Services
             {
                 return;
             }
+            await using var ctx = _contextFactory.Create();
 
-            var taskList = request.Keys
-                .Select(e => _writer.DeleteAsync(FrontKeyValueNoSql.GeneratePartitionKey(request.ClientId), FrontKeyValueNoSql.GenerateRowKey(e)).AsTask())
-                .ToList();
+            await DeleteFromDatabase(ctx, request);
 
-            await Task.WhenAll(taskList);
-
-            _logger.LogDebug("Key values is deleted. ClientId: {clientId}; Count: {count}", request.ClientId, taskList.Count);
+            await UploadClientToCache(ctx, request.ClientId);
+            
+            _logger.LogDebug("Key values is deleted. ClientId: {clientId}; Count: {count}", request.ClientId, request.Keys.Count);
         }
 
-        public Task<GetKeysResponse> GetKeysAsync(GetFrontKeysRequest request)
+        private async Task DeleteFromDatabase(MyContext ctx, DeleteFrontKeysRequest request)
         {
-            var values = _reader.Get(FrontKeyValueNoSql.GeneratePartitionKey(request.ClientId));
+            using var activity = MyTelemetry.StartActivity("Delete from database");
 
-            var response = new GetKeysResponse
+            var deleteList = request.Keys.Select(e => FrontKeyValueDbEntity.Create(request.ClientId, new FrontKeyValue(e, ""))).ToList();
+            ctx.FrontKeyValue.RemoveRange(deleteList);
+            await ctx.SaveChangesAsync();
+        }
+
+        public async Task<GetKeysResponse> GetKeysAsync(GetFrontKeysRequest request)
+        {
+            await using var ctx = _contextFactory.Create();
+
+            var list = await UploadClientToCache(ctx, request.ClientId);
+
+            if (!list.Any())
             {
-                KeyValues = values.Select(e => e.KeyValue).ToList()
-            };
+                await SetKeysAsync(new SetFrontKeysRequest()
+                {
+                    ClientId = request.ClientId,
+                    KeyValues = new List<FrontKeyValue>()
+                    {
+                        new FrontKeyValue("default", "")
+                    }
+                });
 
-            return Task.FromResult(response);
+                list.Add(new FrontKeyValue("default", ""));
+            }
+
+            return new GetKeysResponse()
+            {
+                KeyValues = list
+            };
         }
     }
 }

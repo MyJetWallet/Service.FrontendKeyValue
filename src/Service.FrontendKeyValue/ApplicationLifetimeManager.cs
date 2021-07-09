@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Hosting;
+﻿using System;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using MyJetWallet.Sdk.Service;
 using MyNoSqlServer.DataReader;
@@ -26,7 +27,14 @@ namespace Service.FrontendKeyValue
         protected override void OnStopping()
         {
             _logger.LogInformation("OnStopping has been called.");
-            _myNoSqlTcpClient.Stop();
+            try
+            {
+                _myNoSqlTcpClient.Stop();
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine($"Exception ob stop nosql\n{ex}");
+            }
         }
 
         protected override void OnStopped()

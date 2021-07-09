@@ -16,5 +16,11 @@ namespace Service.FrontendKeyValue.Settings
 
         [YamlProperty("FrontendKeyValue.MyNoSqlWriterUrl")]
         public string MyNoSqlWriterUrl { get; set; }
+
+        [YamlProperty("FrontendKeyValue.PostgresConnectionString")]
+        public string PostgresConnectionString { get; set; }
+
+        [YamlProperty("FrontendKeyValue.CountClientInCache")]
+        public int CountClientInCache { get; set; }
     }
 }
