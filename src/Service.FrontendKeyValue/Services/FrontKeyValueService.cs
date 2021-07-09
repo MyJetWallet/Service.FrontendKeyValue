@@ -17,17 +17,23 @@ namespace Service.FrontendKeyValue.Services
 {
     public class FrontKeyValueService : IFrontKeyValueService
     {
+        private readonly TimeSpan _cacheLifeTime = TimeSpan.FromDays(1);
+
         private readonly ILogger<FrontKeyValueService> _logger;
         private readonly IMyNoSqlServerDataWriter<FrontKeyValueNoSql> _writer;
         private readonly IMyContextFactory _contextFactory;
+        private readonly INoSqlCleanupJob _cleanupJob;
+
 
         public FrontKeyValueService(ILogger<FrontKeyValueService> logger, 
             IMyNoSqlServerDataWriter<FrontKeyValueNoSql> writer,
-            IMyContextFactory contextFactory)
+            IMyContextFactory contextFactory,
+            INoSqlCleanupJob cleanupJob)
         {
             _logger = logger;
             _writer = writer;
             _contextFactory = contextFactory;
+            _cleanupJob = cleanupJob;
         }
 
         public async Task SetKeysAsync(SetFrontKeysRequest request)
@@ -63,9 +69,17 @@ namespace Service.FrontendKeyValue.Services
 
             data.Count.AddToActivityAsTag("count");
 
-            var list = data.Select(e => FrontKeyValueNoSql.Create(clientId, e)).ToList();
+            try
+            {
+                var list = data.Select(e => FrontKeyValueNoSql.Create(clientId, e, _cacheLifeTime)).ToList();
 
-            await _writer.CleanAndBulkInsertAsync(FrontKeyValueNoSql.GeneratePartitionKey(clientId), list);
+                await _writer.CleanAndBulkInsertAsync(FrontKeyValueNoSql.GeneratePartitionKey(clientId), list);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Cannot update nosql cache for client {clientId}", clientId);
+                _cleanupJob.ForceCleanup();
+            }
 
             return data.Select(e => e.ToValue()).ToList();
         }

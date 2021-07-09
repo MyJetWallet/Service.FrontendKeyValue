@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using MyJetWallet.Sdk.Service;
@@ -36,15 +37,22 @@ namespace Service.FrontendKeyValue.Client
         {
             request.ClientId.AddToActivityAsTag("clientId");
 
-            var data = _reader.Get(FrontKeyValueNoSql.GeneratePartitionKey(request.ClientId));
-            if (data.Any())
+            try
             {
-                data.Count.AddToActivityAsTag("count");
-
-                return new GetKeysResponse()
+                var data = _reader.Get(FrontKeyValueNoSql.GeneratePartitionKey(request.ClientId));
+                if (data.Any())
                 {
-                    KeyValues = data.Select(e => e.KeyValue).ToList()
-                };
+                    data.Count.AddToActivityAsTag("count");
+
+                    return new GetKeysResponse()
+                    {
+                        KeyValues = data.Select(e => e.KeyValue).ToList()
+                    };
+                }
+            }
+            catch(Exception ex)
+            {
+                _logger.LogError(ex, "Cannot get data from reader by client {clientId}", request.ClientId);
             }
 
             var response = await _service.GetKeysAsync(request);

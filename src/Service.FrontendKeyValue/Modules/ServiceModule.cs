@@ -27,6 +27,7 @@ namespace Service.FrontendKeyValue.Modules
             builder
                 .RegisterType<NoSqlCleanupJob>()
                 .As<IStartable>()
+                .As<INoSqlCleanupJob>()
                 .AutoActivate()
                 .SingleInstance();
         }

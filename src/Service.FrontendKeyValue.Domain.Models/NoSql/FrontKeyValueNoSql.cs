@@ -1,4 +1,5 @@
-﻿using MyNoSqlServer.Abstractions;
+﻿using System;
+using MyNoSqlServer.Abstractions;
 
 namespace Service.FrontendKeyValue.Domain.Models.NoSql
 {
@@ -11,13 +12,14 @@ namespace Service.FrontendKeyValue.Domain.Models.NoSql
 
         public FrontKeyValue KeyValue { get; set; }
 
-        public static FrontKeyValueNoSql Create(string clientId, FrontKeyValue keyValue)
+        public static FrontKeyValueNoSql Create(string clientId, FrontKeyValue keyValue, TimeSpan liveTime)
         {
             return new FrontKeyValueNoSql()
             {
                 PartitionKey = GeneratePartitionKey(clientId),
                 RowKey = GenerateRowKey(keyValue.Key),
-                KeyValue = keyValue
+                KeyValue = keyValue,
+                Expires = DateTime.UtcNow.Add(liveTime)
             };
         }
     }

@@ -11,11 +11,17 @@ using Service.FrontendKeyValue.Domain.Models.NoSql;
 
 namespace Service.FrontendKeyValue.Services
 {
-    public class NoSqlCleanupJob: IStartable, IDisposable
+    public interface INoSqlCleanupJob
+    {
+        void ForceCleanup();
+    }
+
+    public class NoSqlCleanupJob: IStartable, IDisposable, INoSqlCleanupJob
     {
         private readonly ILogger<NoSqlCleanupJob> _logger;
         private readonly IMyNoSqlServerDataWriter<FrontKeyValueNoSql> _writer;
         private readonly MyTaskTimer _timer;
+        private bool _isInited = false;
 
         public NoSqlCleanupJob(ILogger<NoSqlCleanupJob> logger, IMyNoSqlServerDataWriter<FrontKeyValueNoSql> writer)
         {
@@ -26,8 +32,16 @@ namespace Service.FrontendKeyValue.Services
 
         private async Task DoTime()
         {
-            await _writer.CleanAndKeepMaxPartitions(Program.Settings.CountClientInCache);
-            _logger.LogInformation("Cleanup NoSql table is success, keep {count} clients", Program.Settings.CountClientInCache);
+            if (!_isInited)
+            {
+                await _writer.CleanAndKeepMaxPartitions(0);
+                _logger.LogInformation("Cleanup NoSql table is success. Remove all records");
+            }
+            else
+            {
+                await _writer.CleanAndKeepMaxPartitions(Program.Settings.CountClientInCache);
+                _logger.LogInformation("Cleanup NoSql table is success, keep {count} clients", Program.Settings.CountClientInCache);
+            }
         }
 
         public void Start()
@@ -38,6 +52,11 @@ namespace Service.FrontendKeyValue.Services
         public void Dispose()
         {
             _timer?.Dispose();
+        }
+
+        public void ForceCleanup()
+        {
+            _isInited = true;
         }
     }
 }
