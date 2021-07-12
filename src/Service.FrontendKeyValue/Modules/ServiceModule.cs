@@ -12,12 +12,8 @@ namespace Service.FrontendKeyValue.Modules
     {
         protected override void Load(ContainerBuilder builder)
         {
-            var noSqlClient = builder.CreateNoSqlClient(Program.ReloadedSettings(e => e.MyNoSqlWriterUrl));
-
             builder.RegisterMyNoSqlWriter<FrontKeyValueNoSql>(Program.ReloadedSettings(e => e.MyNoSqlWriterUrl), FrontKeyValueNoSql.TableName, true);
-
-            builder.RegisterMyNoSqlReader<FrontKeyValueNoSql>(noSqlClient, FrontKeyValueNoSql.TableName);
-
+            
             builder
                 .RegisterType<MyContextFactory>()
                 .As<IMyContextFactory>()
