@@ -42,6 +42,8 @@ namespace Service.FrontendKeyValue.Services
                 await _writer.CleanAndKeepMaxPartitions(Program.Settings.CountClientInCache);
                 _logger.LogInformation("Cleanup NoSql table is success, keep {count} clients", Program.Settings.CountClientInCache);
             }
+
+            _isInited = true;
         }
 
         public void Start()
