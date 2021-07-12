@@ -65,7 +65,7 @@ namespace Service.FrontendKeyValue.Services
 
             clientId.AddToActivityAsTag("clientId");
 
-            var data = await ctx.FrontKeyValue.Where(e => e.ClientId == clientId).ToListAsync();
+            var data = await ctx.FrontKeyValue.Where(e => e.ClientId == clientId).AsNoTracking().ToListAsync();
 
             data.Count.AddToActivityAsTag("count");
 
@@ -103,8 +103,13 @@ namespace Service.FrontendKeyValue.Services
         {
             using var activity = MyTelemetry.StartActivity("Delete from database");
 
-            var deleteList = request.Keys.Select(e => FrontKeyValueDbEntity.Create(request.ClientId, new FrontKeyValue(e, ""))).ToList();
-            ctx.FrontKeyValue.RemoveRange(deleteList);
+            var items = ctx.FrontKeyValue
+                .Where(e => e.ClientId == request.ClientId)
+                .Where(e => request.Keys.Contains(e.Key))
+                .ToListAsync();
+
+            ctx.RemoveRange(items);
+
             await ctx.SaveChangesAsync();
         }
 
