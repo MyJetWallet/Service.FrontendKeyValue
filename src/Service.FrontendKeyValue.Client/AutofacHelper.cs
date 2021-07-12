@@ -21,7 +21,12 @@ namespace Service.FrontendKeyValue.Client
                 .WithParameter("service", factory.GetFrontKeyValueService())
                 .As<IFrontKeyValueService>()
                 .SingleInstance();
+        }
 
+        public static void RegisterFrontendKeyValueClientNoCache(this ContainerBuilder builder, string grpcServiceUrl)
+        {
+            var factory = new FrontendKeyValueClientFactory(grpcServiceUrl);
+            
             builder.RegisterInstance(factory.GetFrontKeyValueService()).As<IFrontKeyValueService>().SingleInstance();
         }
     }
