@@ -103,14 +103,7 @@ namespace Service.FrontendKeyValue.Services
         {
             using var activity = MyTelemetry.StartActivity("Delete from database");
 
-            var items = ctx.FrontKeyValue
-                .Where(e => e.ClientId == request.ClientId)
-                .Where(e => request.Keys.Contains(e.Key))
-                .ToListAsync();
-
-            ctx.RemoveRange(items);
-
-            await ctx.SaveChangesAsync();
+            await ctx.DeleteKeys(request.ClientId, request.Keys);
         }
 
         public async Task<GetKeysResponse> GetKeysAsync(GetFrontKeysRequest request)

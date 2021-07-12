@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -49,6 +50,19 @@ namespace Service.FrontendKeyValue.Postgres
             entities.Count.AddToActivityAsTag("count-entities");
             count.AddToActivityAsTag("count-updated");
             return count;
+        }
+
+        public async Task<int> DeleteKeys(string clientId, List<string> keys)
+        {
+
+
+            var keysParam = keys.Aggregate("''", (current, key) => current + $",'{key}'");
+
+            var sql = $"delete from {Schema}.{FrontKeyValueTableName} where \"ClientId\"='{clientId}' and \"Key\" in ({keysParam})";
+
+            var result = await this.Database.ExecuteSqlRawAsync(sql);
+
+            return result;
         }
     }
 
