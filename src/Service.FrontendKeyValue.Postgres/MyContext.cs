@@ -9,7 +9,7 @@ using MyJetWallet.Sdk.Service;
 
 namespace Service.FrontendKeyValue.Postgres
 {
-    public class MyContext : DbContext
+    public class MyContext : MyDbContext
     {
         public const string Schema = "frontend_key_value";
         public const string FrontKeyValueTableName = "key_value";
@@ -18,16 +18,6 @@ namespace Service.FrontendKeyValue.Postgres
 
         public MyContext(DbContextOptions options) : base(options)
         {
-        }
-
-        public static ILoggerFactory LoggerFactory { get; set; }
-
-        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-        {
-            if (LoggerFactory != null)
-            {
-                optionsBuilder.UseLoggerFactory(LoggerFactory).EnableSensitiveDataLogging();
-            }
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
