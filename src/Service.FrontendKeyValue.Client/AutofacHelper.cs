@@ -10,7 +10,7 @@ namespace Service.FrontendKeyValue.Client
 {
     public static class AutofacHelper
     {
-        public static void RegisterFrontendKeyValueClient(this ContainerBuilder builder, MyNoSqlTcpClient client, string grpcServiceUrl)
+        public static void RegisterFrontendKeyValueClient(this ContainerBuilder builder, IMyNoSqlSubscriber client, string grpcServiceUrl)
         {
             var factory = new FrontendKeyValueClientFactory(grpcServiceUrl);
 
